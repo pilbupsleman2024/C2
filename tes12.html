@@ -5,25 +5,51 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Google Drive Shared Files</title>
     <script src="https://apis.google.com/js/api.js"></script>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+    </style>
 </head>
 <body>
 
     <h2>Daftar File dan Folder yang Dibagikan ke Saya</h2>
-    <button id="login-button">Login with Google</button>
-    <button id="list-files-button" style="display:none;">Lihat File Dibagikan</button>
-    <ul id="file-list"></ul>
+    <button id="login-button">Login dengan Google</button>
+    <button id="list-files-button" style="display:none;">Tampilkan File Dibagikan</button>
+    
+    <input type="text" id="search-input" placeholder="Cari file atau folder..." style="margin-top: 20px; padding: 10px; width: 300px;">
+    
+    <table id="file-table" style="margin-top: 20px;">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nama File/Folder</th>
+                <th>Tipe</th>
+            </tr>
+        </thead>
+        <tbody id="file-list"></tbody>
+    </table>
 
     <script type="text/javascript">
         // Client ID dari Google Cloud Console
         const CLIENT_ID = '813200627487-m1bte9iacbocsr0i8gqgbp5vudh495as.apps.googleusercontent.com'; // Ganti dengan Client ID milikmu
 
-        // ID API untuk Google Drive
+        // API Key dari Google Cloud Console
         const API_KEY = 'AIzaSyBcx_GLOdIkHQ-9jKkAJGaXv4j13SNSTHg'; // Ganti dengan API Key milikmu
 
-        // Scopes yang dibutuhkan untuk mengakses Drive
-        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+        // Scopes untuk mengakses Drive
+        const SCOPES = 'https://www.googleapis.com/auth/drive.readonly';
+        //const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
-        // Mendapatkan akses token dan memulai API
+        // Inisialisasi client
         function initClient() {
             gapi.client.init({
                 apiKey: API_KEY,
@@ -31,13 +57,12 @@
                 scope: SCOPES,
                 discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"]
             }).then(function() {
-                // Mendapatkan status login pengguna
                 gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
                 updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
             });
         }
 
-        // Memuat library API
+        // Memuat API Client
         function handleClientLoad() {
             gapi.load('client:auth2', initClient);
         }
@@ -53,7 +78,7 @@
             }
         }
 
-        // Fungsi untuk login menggunakan Google
+        // Fungsi login menggunakan Google
         function handleAuthClick(event) {
             gapi.auth2.getAuthInstance().signIn();
         }
@@ -63,27 +88,64 @@
             gapi.auth2.getAuthInstance().signOut();
         }
 
-        // Fungsi untuk menampilkan file yang dibagikan ke saya
+        // Menampilkan file yang dibagikan ke saya
         function listSharedFiles() {
             gapi.client.drive.files.list({
-                'q': "'me' in readers",  // Mencari file yang dibagikan dengan saya
-                'fields': 'nextPageToken, files(id, name, mimeType, shared)',
+                'q': "'me' in readers",  // Query untuk mencari file yang dibagikan ke saya
+                'fields': 'nextPageToken, files(id, name, mimeType)',
                 'spaces': 'drive'
             }).then(function(response) {
                 var files = response.result.files;
-                if (files && files.length > 0) {
-                    var fileList = document.getElementById('file-list');
-                    fileList.innerHTML = '';
-                    files.forEach(function(file) {
-                        var listItem = document.createElement('li');
-                        listItem.textContent = file.name + ' (' + file.mimeType + ')';
-                        fileList.appendChild(listItem);
-                    });
-                } else {
-                    alert('Tidak ada file yang dibagikan kepada Anda.');
-                }
+                displayFiles(files);
             });
         }
+
+        // Menampilkan file dalam tabel
+        function displayFiles(files) {
+            var tableBody = document.getElementById('file-list');
+            tableBody.innerHTML = '';  // Clear previous data
+            if (files && files.length > 0) {
+                files.forEach(function(file) {
+                    var row = document.createElement('tr');
+                    var cellId = document.createElement('td');
+                    var cellName = document.createElement('td');
+                    var cellMimeType = document.createElement('td');
+                    
+                    cellId.textContent = file.id;
+                    cellName.textContent = file.name;
+                    cellMimeType.textContent = file.mimeType;
+                    
+                    row.appendChild(cellId);
+                    row.appendChild(cellName);
+                    row.appendChild(cellMimeType);
+                    tableBody.appendChild(row);
+                });
+            } else {
+                var row = document.createElement('tr');
+                var cell = document.createElement('td');
+                cell.colSpan = 3;
+                cell.textContent = 'Tidak ada file yang dibagikan ke Anda.';
+                row.appendChild(cell);
+                tableBody.appendChild(row);
+            }
+        }
+
+        // Fungsi pencarian
+        document.getElementById('search-input').addEventListener('input', function() {
+            var searchTerm = this.value.toLowerCase();
+            var rows = document.querySelectorAll('#file-list tr');
+            rows.forEach(function(row) {
+                var nameCell = row.cells[1]; // Kolom nama file
+                if (nameCell) {
+                    var name = nameCell.textContent.toLowerCase();
+                    if (name.indexOf(searchTerm) > -1) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                }
+            });
+        });
 
         // Menambahkan event listener
         document.getElementById('login-button').addEventListener('click', handleAuthClick);
